@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from typing import Optional
@@ -46,9 +47,13 @@ class LayaGrpcService(LayaInferenceServiceServicer):
                 candidates = [(c.candidate_id, c.text) for c in request.candidates]
 
                 if request.primitive == "score":
-                    ranked = evaluate_score(self.engine, request.query, candidates)
+                    ranked = await asyncio.to_thread(
+                        evaluate_score, self.engine, request.query, candidates
+                    )
                 else:
-                    ranked = evaluate_noul(self.engine, request.query, candidates)
+                    ranked = await asyncio.to_thread(
+                        evaluate_noul, self.engine, request.query, candidates
+                    )
 
                 elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
@@ -69,7 +74,10 @@ class LayaGrpcService(LayaInferenceServiceServicer):
         except ConcurrencyLimitExceededError as e:
             logger.warning("Rerank rejected due to saturated inference slots")
             if context is not None:
-                context.abort(grpc.StatusCode.RESOURCE_EXHAUSTED, str(e))
+                abort_res = context.abort(grpc.StatusCode.RESOURCE_EXHAUSTED, str(e))
+                if asyncio.iscoroutine(abort_res):
+                    await abort_res
+                return RerankResponse()
             raise
 
     async def Route(
@@ -84,15 +92,18 @@ class LayaGrpcService(LayaInferenceServiceServicer):
             async with self.guard:
                 if len(request.choices) < 2:
                     if context is not None:
-                        context.abort(
+                        abort_res = context.abort(
                             grpc.StatusCode.INVALID_ARGUMENT,
                             "choices must contain at least 2 distinct options",
                         )
+                        if asyncio.iscoroutine(abort_res):
+                            await abort_res
+                        return RouteResponse()
                     raise ValueError("choices must contain at least 2 distinct options")
 
                 t0 = time.perf_counter()
-                selected_choice, conf_dist = evaluate_choice(
-                    self.engine, request.query, list(request.choices)
+                selected_choice, conf_dist = await asyncio.to_thread(
+                    evaluate_choice, self.engine, request.query, list(request.choices)
                 )
                 elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
@@ -105,7 +116,10 @@ class LayaGrpcService(LayaInferenceServiceServicer):
         except ConcurrencyLimitExceededError as e:
             logger.warning("Route rejected due to saturated inference slots")
             if context is not None:
-                context.abort(grpc.StatusCode.RESOURCE_EXHAUSTED, str(e))
+                abort_res = context.abort(grpc.StatusCode.RESOURCE_EXHAUSTED, str(e))
+                if asyncio.iscoroutine(abort_res):
+                    await abort_res
+                return RouteResponse()
             raise
 
 

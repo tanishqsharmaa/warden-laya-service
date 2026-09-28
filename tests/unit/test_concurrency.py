@@ -1,4 +1,5 @@
 import asyncio
+import time
 
 import pytest
 
@@ -36,11 +37,11 @@ async def test_concurrency_guard_sheds_slot_17_immediately():
     assert guard.active_slots == 16
 
     # 17th request must raise ConcurrencyLimitExceededError immediately (< 10ms)
-    t0 = asyncio.get_event_loop().time()
+    t0 = time.monotonic()
     with pytest.raises(ConcurrencyLimitExceededError) as exc_info:
         async with guard:
             pass
-    t_elapsed = asyncio.get_event_loop().time() - t0
+    t_elapsed = time.monotonic() - t0
     assert t_elapsed < 0.010  # Less than 10ms (sub-millisecond rejection)
     assert exc_info.value.retry_after == 0.1
 

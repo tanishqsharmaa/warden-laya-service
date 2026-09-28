@@ -32,4 +32,12 @@ def test_hpa_manifest_conforms_to_spec():
         if m["type"] == "Resource"
     }
     assert metrics["cpu"] == 65
-    assert metrics["memory"] == 80
+
+    pod_metrics = {
+        m["pods"]["metric"]["name"]: m["pods"]["target"]["averageValue"]
+        for m in spec["metrics"]
+        if m["type"] == "Pods"
+    }
+    assert pod_metrics["inference_active_slots"] == "10"
+    assert "scaleUp" in spec["behavior"]
+    assert "scaleDown" in spec["behavior"]

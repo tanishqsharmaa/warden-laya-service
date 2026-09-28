@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 def create_app(
     mock_mode: bool = False,
     settings: Optional[LayaSettings] = None,
+    engine: Optional[LayaModelEngine] = None,
+    guard: Optional[ConcurrencyGuard] = None,
 ) -> FastAPI:
     """
     Application factory for warden-laya-service.
@@ -24,30 +26,33 @@ def create_app(
     """
     app_settings = settings or get_settings()
 
+    # Shared single engine and guard instances (prevents memory doubling)
+    resolved_engine = engine or LayaModelEngine(
+        model_name_or_path=app_settings.MODEL_NAME_OR_PATH,
+        num_threads=app_settings.TORCH_NUM_THREADS,
+        backend=app_settings.INFERENCE_BACKEND,
+        mock_mode=mock_mode,
+    )
+    resolved_guard = guard or ConcurrencyGuard(
+        max_concurrency=app_settings.MAX_CONCURRENT_REQUESTS
+    )
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        # Startup: Initialize inference engine and concurrency guard
+        # Startup: Attach state and start gRPC server if live
         logger.info("Initializing warden-laya-service application lifespan...")
-        engine = LayaModelEngine(
-            model_name_or_path=app_settings.MODEL_NAME_OR_PATH,
-            num_threads=app_settings.TORCH_NUM_THREADS,
-            backend=app_settings.INFERENCE_BACKEND,
-            mock_mode=mock_mode,
-        )
-        guard = ConcurrencyGuard(max_concurrency=app_settings.MAX_CONCURRENT_REQUESTS)
-
-        app.state.engine = engine
-        app.state.guard = guard
+        app.state.engine = resolved_engine
+        app.state.guard = resolved_guard
         app.state.settings = app_settings
 
         grpc_server = None
-        if not mock_mode:
+        if not resolved_engine.mock_mode:
             logger.info(f"Starting gRPC server on port {app_settings.GRPC_PORT}...")
             grpc_server = create_grpc_server(
                 host="0.0.0.0",
                 port=app_settings.GRPC_PORT,
-                engine=engine,
-                guard=guard,
+                engine=resolved_engine,
+                guard=resolved_guard,
             )
             await grpc_server.start()
 
@@ -72,16 +77,9 @@ def create_app(
     # Attach endpoints
     app.include_router(api_router)
 
-    # For fast test access without lifespan trigger
-    engine = LayaModelEngine(
-        model_name_or_path=app_settings.MODEL_NAME_OR_PATH,
-        num_threads=app_settings.TORCH_NUM_THREADS,
-        backend=app_settings.INFERENCE_BACKEND,
-        mock_mode=mock_mode,
-    )
-    guard = ConcurrencyGuard(max_concurrency=app_settings.MAX_CONCURRENT_REQUESTS)
-    app.state.engine = engine
-    app.state.guard = guard
+    # Attach shared state
+    app.state.engine = resolved_engine
+    app.state.guard = resolved_guard
     app.state.settings = app_settings
 
     return app

@@ -27,6 +27,13 @@ def export_onnx(model_id: str, output_path: str, dtype: str = "bfloat16") -> Non
     model = AutoModelForSequenceClassification.from_pretrained(model_id)
     model.eval()
 
+    if dtype == "bfloat16":
+        logger.info("Casting model to bfloat16 precision...")
+        model = model.to(torch.bfloat16)
+    elif dtype == "float16":
+        logger.info("Casting model to float16 precision...")
+        model = model.to(torch.float16)
+
     dummy_input = tokenizer(
         "What is the bereavement policy?",
         "Up to 5 days leave.",

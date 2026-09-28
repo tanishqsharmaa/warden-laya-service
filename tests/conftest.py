@@ -1,9 +1,12 @@
 import pytest
 
+from warden_laya.config import get_settings
+
 
 @pytest.fixture(autouse=True)
 def reset_environment(monkeypatch):
     """Ensure test runs start with a clean configuration environment."""
+    get_settings.cache_clear()
     monkeypatch.delenv("MODEL_NAME_OR_PATH", raising=False)
     monkeypatch.delenv("INFERENCE_BACKEND", raising=False)
     monkeypatch.delenv("TORCH_NUM_THREADS", raising=False)

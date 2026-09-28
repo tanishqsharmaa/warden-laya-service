@@ -19,6 +19,9 @@ dependencies = [
     "httpx>=0.27.0",
     "numpy>=1.26.0",
     "psutil>=5.9.0",
+    "onnxruntime>=1.17.0",
+    "torch>=2.2.0",
+    "transformers>=4.39.0",
     "warden-shared>=1.0.0",
 ]
 
@@ -41,6 +44,8 @@ pythonpath = ["src"]
 asyncio_mode = "auto"
 markers = [
     "integration: marks end-to-end integration tests requiring live storage or external services",
+    "latency_benchmark: marks CPU inference latency benchmark tests",
+    "shedding: marks concurrency overload shedding tests",
 ]
 
 [tool.ruff]

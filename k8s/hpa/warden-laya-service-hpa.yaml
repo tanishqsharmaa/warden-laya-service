@@ -17,9 +17,23 @@ spec:
       target:
         type: Utilization
         averageUtilization: 65
-  - type: Resource
-    resource:
-      name: memory
+  - type: Pods
+    pods:
+      metric:
+        name: inference_active_slots
       target:
-        type: Utilization
-        averageUtilization: 80
+        type: AverageValue
+        averageValue: "10"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 25
+        periodSeconds: 60

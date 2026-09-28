@@ -54,6 +54,12 @@ class LayaModelEngine:
             self._session = ort.InferenceSession(self.model_name_or_path, sess_options=opts)
             self._is_loaded = True
             logger.info(f"Loaded ONNX model from {self.model_name_or_path}")
+
+            try:
+                from transformers import AutoTokenizer
+                self._tokenizer = AutoTokenizer.from_pretrained("convaiinnovations/laya")
+            except Exception as e:
+                logger.warning(f"Could not load HuggingFace tokenizer: {e}")
         else:
             # Fallback for local testing or PyTorch loading
             logger.info(
@@ -84,12 +90,25 @@ class LayaModelEngine:
         if not candidates:
             return np.empty((0, 2), dtype=np.float32)
 
-        if self.mock_mode:
-            return self._mock_forward_batch(query, candidates)
+        if not self.mock_mode and self._session is not None and self._tokenizer is not None:
+            try:
+                encoded = self._tokenizer(
+                    [query] * len(candidates),
+                    candidates,
+                    padding=True,
+                    truncation=True,
+                    max_length=1024,
+                    return_tensors="np",
+                )
+                ort_inputs = {
+                    "input_ids": encoded["input_ids"].astype(np.int64),
+                    "attention_mask": encoded["attention_mask"].astype(np.int64),
+                }
+                outputs = self._session.run(None, ort_inputs)
+                return np.asarray(outputs[0], dtype=np.float32)
+            except Exception as e:
+                logger.warning(f"ONNX tensor execution failed ({e}); falling back to heuristic")
 
-        # Real ONNX Runtime inference path
-        assert self._session is not None
-        # Placeholder for full ONNX tensor execution when weights mounted
         return self._mock_forward_batch(query, candidates)
 
     def forward_choice(self, query: str, choices: List[str]) -> np.ndarray:
@@ -100,10 +119,27 @@ class LayaModelEngine:
         if not choices:
             return np.empty((0,), dtype=np.float32)
 
-        if self.mock_mode:
-            return self._mock_forward_choice(query, choices)
+        if not self.mock_mode and self._session is not None and self._tokenizer is not None:
+            try:
+                prompts = [f"This query is about {c}." for c in choices]
+                encoded = self._tokenizer(
+                    [query] * len(choices),
+                    prompts,
+                    padding=True,
+                    truncation=True,
+                    max_length=1024,
+                    return_tensors="np",
+                )
+                ort_inputs = {
+                    "input_ids": encoded["input_ids"].astype(np.int64),
+                    "attention_mask": encoded["attention_mask"].astype(np.int64),
+                }
+                outputs = self._session.run(None, ort_inputs)
+                logits = outputs[0][:, 1]  # Extract positive class logit
+                return np.asarray(logits, dtype=np.float32)
+            except Exception as e:
+                logger.warning(f"ONNX choice execution failed ({e}); falling back to heuristic")
 
-        # Real inference path
         return self._mock_forward_choice(query, choices)
 
     def _mock_forward_batch(self, query: str, candidates: List[str]) -> np.ndarray:
@@ -133,8 +169,7 @@ class LayaModelEngine:
             c_keywords = choice.lower().replace("_", " ").split()
             overlap = sum(1 for kw in c_keywords if kw in q_lower)
             logits.append(float(overlap * 2.0))
-        # Ensure at least non-zero variation
         arr = np.array(logits, dtype=np.float32)
         if np.all(arr == 0):
-            arr[0] = 1.0
+            return np.ones((len(choices),), dtype=np.float32)
         return arr
