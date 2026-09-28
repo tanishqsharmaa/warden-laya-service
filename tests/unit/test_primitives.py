@@ -1,6 +1,8 @@
 import pytest
+
 from warden_laya.model import LayaModelEngine
-from warden_laya.primitives import evaluate_noul, evaluate_choice, evaluate_score
+from warden_laya.primitives import evaluate_choice, evaluate_noul, evaluate_score
+
 
 @pytest.fixture
 def engine():

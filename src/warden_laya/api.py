@@ -1,14 +1,16 @@
-import time
+import asyncio
 import logging
+import time
 from datetime import datetime, timezone
-from typing import List, Dict, Optional
+from typing import Dict, List
+
 import psutil
-from fastapi import APIRouter, Request, status, HTTPException
+from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
 from warden_laya.concurrency import ConcurrencyLimitExceededError
-from warden_laya.primitives import evaluate_noul, evaluate_choice, evaluate_score
+from warden_laya.primitives import evaluate_choice, evaluate_noul, evaluate_score
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -88,9 +90,9 @@ async def rerank_endpoint(payload: RerankRequestPayload, request: Request):
             candidates = [(c.candidate_id, c.text) for c in payload.candidates]
 
             if payload.primitive == "score":
-                ranked = evaluate_score(engine, payload.query, candidates)
+                ranked = await asyncio.to_thread(evaluate_score, engine, payload.query, candidates)
             else:
-                ranked = evaluate_noul(engine, payload.query, candidates)
+                ranked = await asyncio.to_thread(evaluate_noul, engine, payload.query, candidates)
 
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
@@ -137,8 +139,8 @@ async def route_endpoint(payload: RouteRequestPayload, request: Request):
     try:
         async with guard:
             t0 = time.perf_counter()
-            selected_choice, conf_dist = evaluate_choice(
-                engine, payload.query, payload.choices
+            selected_choice, conf_dist = await asyncio.to_thread(
+                evaluate_choice, engine, payload.query, payload.choices
             )
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
 

@@ -1,5 +1,6 @@
 import pytest
 
+
 @pytest.fixture(autouse=True)
 def reset_environment(monkeypatch):
     """Ensure test runs start with a clean configuration environment."""

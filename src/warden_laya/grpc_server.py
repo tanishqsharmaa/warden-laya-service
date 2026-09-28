@@ -1,17 +1,28 @@
-import time
 import logging
+import time
 from typing import Optional
-import grpc
 
-from warden_shared.proto.v1 import laya_pb2, laya_pb2_grpc
-from warden_laya.model import LayaModelEngine
+import grpc
+from warden_shared.proto.v1.laya_pb2 import (  # type: ignore[attr-defined]
+    RankedCandidate,
+    RerankRequest,
+    RerankResponse,
+    RouteRequest,
+    RouteResponse,
+)
+from warden_shared.proto.v1.laya_pb2_grpc import (
+    LayaInferenceServiceServicer,
+    add_LayaInferenceServiceServicer_to_server,
+)
+
 from warden_laya.concurrency import ConcurrencyGuard, ConcurrencyLimitExceededError
-from warden_laya.primitives import evaluate_noul, evaluate_choice, evaluate_score
+from warden_laya.model import LayaModelEngine
+from warden_laya.primitives import evaluate_choice, evaluate_noul, evaluate_score
 
 logger = logging.getLogger(__name__)
 
 
-class LayaGrpcService(laya_pb2_grpc.LayaInferenceServiceServicer):
+class LayaGrpcService(LayaInferenceServiceServicer):
     """
     gRPC Servicer implementing LayaInferenceService over HTTP/2.
     Serves high-throughput candidate reranking and intent routing.
@@ -23,9 +34,9 @@ class LayaGrpcService(laya_pb2_grpc.LayaInferenceServiceServicer):
 
     async def Rerank(
         self,
-        request: laya_pb2.RerankRequest,
+        request: RerankRequest,
         context: Optional[grpc.aio.ServicerContext],
-    ) -> laya_pb2.RerankResponse:
+    ) -> RerankResponse:
         """
         Executes candidate reranking using calibrated decision primitives.
         """
@@ -42,7 +53,7 @@ class LayaGrpcService(laya_pb2_grpc.LayaInferenceServiceServicer):
                 elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
                 ranked_items = [
-                    laya_pb2.RankedCandidate(
+                    RankedCandidate(
                         candidate_id=cand_id,
                         probability_true=prob,
                         rank=r,
@@ -50,7 +61,7 @@ class LayaGrpcService(laya_pb2_grpc.LayaInferenceServiceServicer):
                     for cand_id, prob, r in ranked
                 ]
 
-                return laya_pb2.RerankResponse(
+                return RerankResponse(
                     query=request.query,
                     ranked_results=ranked_items,
                     inference_latency_ms=elapsed_ms,
@@ -63,9 +74,9 @@ class LayaGrpcService(laya_pb2_grpc.LayaInferenceServiceServicer):
 
     async def Route(
         self,
-        request: laya_pb2.RouteRequest,
+        request: RouteRequest,
         context: Optional[grpc.aio.ServicerContext],
-    ) -> laya_pb2.RouteResponse:
+    ) -> RouteResponse:
         """
         Executes intent routing across discrete string choices.
         """
@@ -85,7 +96,7 @@ class LayaGrpcService(laya_pb2_grpc.LayaInferenceServiceServicer):
                 )
                 elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
-                return laya_pb2.RouteResponse(
+                return RouteResponse(
                     query=request.query,
                     selected_choice=selected_choice,
                     confidence_distribution=conf_dist,
@@ -116,6 +127,6 @@ def create_grpc_server(
     ]
     server = grpc.aio.server(options=options)
     servicer = LayaGrpcService(engine=engine, guard=guard)
-    laya_pb2_grpc.add_LayaInferenceServiceServicer_to_server(servicer, server)
+    add_LayaInferenceServiceServicer_to_server(servicer, server)
     server.add_insecure_port(f"{host}:{port}")
     return server

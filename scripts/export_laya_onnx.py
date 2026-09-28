@@ -27,8 +27,12 @@ def export_onnx(model_id: str, output_path: str, dtype: str = "bfloat16") -> Non
     model = AutoModelForSequenceClassification.from_pretrained(model_id)
     model.eval()
 
-    dummy_input = tokenizer("What is the bereavement policy?", "Up to 5 days leave.", return_tensors="pt")
-    
+    dummy_input = tokenizer(
+        "What is the bereavement policy?",
+        "Up to 5 days leave.",
+        return_tensors="pt",
+    )
+
     logger.info(f"Exporting to ONNX at {output_path}...")
     torch.onnx.export(
         model,
@@ -48,9 +52,19 @@ def export_onnx(model_id: str, output_path: str, dtype: str = "bfloat16") -> Non
 
 def main():
     parser = argparse.ArgumentParser(description="Export ModernBERT Laya model to ONNX")
-    parser.add_argument("--model", type=str, default="convaiinnovations/laya", help="HuggingFace model ID")
-    parser.add_argument("--output", type=str, default="models/laya.onnx", help="Output path for ONNX file")
-    parser.add_argument("--dtype", type=str, default="bfloat16", choices=["bfloat16", "float16", "float32"], help="Precision")
+    parser.add_argument(
+        "--model", type=str, default="convaiinnovations/laya", help="HuggingFace model ID"
+    )
+    parser.add_argument(
+        "--output", type=str, default="models/laya.onnx", help="Output path for ONNX file"
+    )
+    parser.add_argument(
+        "--dtype",
+        type=str,
+        default="bfloat16",
+        choices=["bfloat16", "float16", "float32"],
+        help="Precision",
+    )
     args = parser.parse_args()
 
     export_onnx(args.model, args.output, args.dtype)

@@ -1,6 +1,6 @@
 import os
+
 import yaml
-import pytest
 
 
 def test_dockerfile_exists_and_uses_non_root_debian():

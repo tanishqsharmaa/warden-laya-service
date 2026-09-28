@@ -1,5 +1,7 @@
-from typing import List, Tuple, Dict
+from typing import Dict, List, Tuple
+
 import numpy as np
+
 from warden_laya.model import LayaModelEngine
 
 

@@ -1,6 +1,7 @@
 import logging
 import os
-from typing import Optional, List
+from typing import List
+
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -55,7 +56,9 @@ class LayaModelEngine:
             logger.info(f"Loaded ONNX model from {self.model_name_or_path}")
         else:
             # Fallback for local testing or PyTorch loading
-            logger.info(f"Model path {self.model_name_or_path} not found as ONNX file; using mock mode")
+            logger.info(
+                f"Model path {self.model_name_or_path} not found as ONNX file; using mock mode"
+            )
             self.mock_mode = True
             self._is_loaded = True
 
@@ -71,7 +74,7 @@ class LayaModelEngine:
         batch_res = self.forward_batch(query=query, candidates=[text])
         if len(batch_res) == 0:
             return np.array([0.0, 0.0], dtype=np.float32)
-        return batch_res[0]
+        return np.asarray(batch_res[0], dtype=np.float32)
 
     def forward_batch(self, query: str, candidates: List[str]) -> np.ndarray:
         """

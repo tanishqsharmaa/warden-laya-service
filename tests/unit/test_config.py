@@ -1,5 +1,5 @@
-import pytest
 from warden_laya.config import LayaSettings, get_settings
+
 
 def test_default_configuration_matrix():
     settings = LayaSettings()

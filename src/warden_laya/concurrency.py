@@ -42,7 +42,7 @@ class ConcurrencyGuard:
         async with self._lock:
             if self._active_slots >= self._max_concurrency:
                 logger.warning(
-                    f"Concurrency ceiling saturated ({self._active_slots}/{self._max_concurrency}). "
+                    f"Concurrency saturated ({self._active_slots}/{self._max_concurrency}). "
                     "Shedding incoming request immediately."
                 )
                 raise ConcurrencyLimitExceededError(retry_after=0.1)

@@ -1,9 +1,10 @@
-import pytest
 import grpc
-from warden_shared.proto.v1 import laya_pb2, laya_pb2_grpc
-from warden_laya.model import LayaModelEngine
+import pytest
+from warden_shared.proto.v1 import laya_pb2
+
 from warden_laya.concurrency import ConcurrencyGuard
 from warden_laya.grpc_server import LayaGrpcService
+from warden_laya.model import LayaModelEngine
 
 
 class MockGrpcContext:

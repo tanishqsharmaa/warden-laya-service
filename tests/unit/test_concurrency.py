@@ -1,12 +1,15 @@
 import asyncio
+
 import pytest
+
 from warden_laya.concurrency import ConcurrencyGuard, ConcurrencyLimitExceededError
+
 
 @pytest.mark.asyncio
 async def test_concurrency_guard_permits_up_to_limit():
     guard = ConcurrencyGuard(max_concurrency=16)
     assert guard.active_slots == 0
-    
+
     acquired = []
     async def worker():
         async with guard:
@@ -23,7 +26,7 @@ async def test_concurrency_guard_permits_up_to_limit():
 @pytest.mark.asyncio
 async def test_concurrency_guard_sheds_slot_17_immediately():
     guard = ConcurrencyGuard(max_concurrency=16)
-    
+
     async def holding_worker():
         async with guard:
             await asyncio.sleep(0.1)

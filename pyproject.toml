@@ -49,3 +49,26 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "grpc.*",
+    "psutil.*",
+    "torch.*",
+    "onnxruntime.*",
+    "warden_shared.*",
+    "warden_shared.proto.*",
+    "warden_shared.proto.v1.*",
+    "warden_shared.proto.v1.laya_pb2",
+    "warden_shared.proto.v1.laya_pb2_grpc",
+]
+ignore_missing_imports = true
+ignore_errors = true
+
