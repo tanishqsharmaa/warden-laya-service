@@ -1,0 +1,45 @@
+# syntax=docker/dockerfile:1
+FROM python:3.12.2-slim-bookworm as base
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PORT=8000 \
+    GRPC_PORT=50051 \
+    TORCH_NUM_THREADS=2 \
+    INFERENCE_BACKEND=onnx_runtime \
+    TORCH_DTYPE=bfloat16
+
+WORKDIR /app
+
+# Install minimal OS dependencies for healthchecks
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root system group and user
+RUN groupadd -g 10001 appgroup && \
+    useradd -u 10001 -g appgroup -s /bin/bash -m appuser
+
+# Copy application source and manifests
+COPY pyproject.toml /app/
+COPY src/ /app/src/
+
+# Install python dependencies
+RUN pip install --upgrade pip && \
+    pip install ".[dev]"
+
+# Switch to non-privileged system user
+USER 10001:10001
+
+# Expose HTTP REST and binary gRPC ports
+EXPOSE 8000 50051
+
+# Health probe checking FastAPI health endpoint
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Start Uvicorn application runner
+CMD ["uvicorn", "warden_laya.main:app", "--host", "0.0.0.0", "--port", "8000"]
